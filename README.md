@@ -4,7 +4,7 @@ AI Based Web Application Security Scanner
 
 | Name | Role |
 |---|---|
-|  | ML / AI Engineer |
+| Yuvraj | AI / ML Engineer |
 | Nitish | Backend / Scanner Engineer |
 | Sayantan| DevOps / Cloud Engineer |
 | Shreyasi | Frontend / Auth Engineer |
