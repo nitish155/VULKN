@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Ignore datasets folder
 datasets/
 
@@ -24,3 +25,11 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+=======
+venv/
+__pycache__/
+.env
+datasets/
+*.pyc
+.DS_Store
+>>>>>>> fe013aa7733fb0793b3e70cee76712671d13212d
