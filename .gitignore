@@ -1,35 +1,6 @@
-<<<<<<< HEAD
-# Ignore datasets folder
-datasets/
-
-# Python
-__pycache__/
-*.py[cod]
-*.env
-.env
-venv/
-.venv/
-
-# Node / Frontend
-node_modules/
-frontend/build/
-frontend/dist/
-
-# Docker
-*.log
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-=======
 venv/
 __pycache__/
 .env
 datasets/
 *.pyc
 .DS_Store
->>>>>>> fe013aa7733fb0793b3e70cee76712671d13212d
