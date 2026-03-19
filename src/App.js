@@ -1,23 +1,17 @@
-import logo from './logo.svg';
-import './App.css';
+function HelloWASS({ projectName, role }) {
+  return (
+    <div style={{ padding: '40px', fontFamily: 'sans-serif', textAlign: 'center' }}>
+      <h1>Welcome to {projectName} 👋</h1>
+      <p>Your role: <strong>{role}</strong></p>
+      <p style={{ color: 'green' }}>Frontend is live! 🚀</p>
+    </div>
+  );
+}
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      <HelloWASS projectName="WASS" role="Frontend Developer" />
     </div>
   );
 }
