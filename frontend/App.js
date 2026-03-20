@@ -1,9 +1,29 @@
-function HelloWASS({ projectName, role }) {
+import { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
   return (
-    <div style={{ padding: '40px', fontFamily: 'sans-serif', textAlign: 'center' }}>
-      <h1>Welcome to {projectName} 👋</h1>
-      <p>Your role: <strong>{role}</strong></p>
-      <p style={{ color: 'green' }}>Frontend is live! 🚀</p>
+    <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>
+      <h1>Counter: {count}</h1>
+      <button onClick={() => setCount(count + 1)}>Click Me +</button>
+    </div>
+  );
+}
+
+function MyForm() {
+  const [text, setText] = useState('');
+
+  return (
+    <div style={{ padding: '40px', fontFamily: 'sans-serif' }}>
+      <h2>Type Something:</h2>
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Type here..."
+      />
+      <p>You typed: <strong>{text}</strong></p>
     </div>
   );
 }
@@ -11,7 +31,8 @@ function HelloWASS({ projectName, role }) {
 function App() {
   return (
     <div>
-      <HelloWASS projectName="WASS" role="Frontend Developer" />
+      <Counter />
+      <MyForm />
     </div>
   );
 }
