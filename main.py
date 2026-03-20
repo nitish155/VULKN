@@ -57,3 +57,4 @@ def get_scan_results(scan_id: str):
             }
         ]
     }
+    }
