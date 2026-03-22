@@ -2,13 +2,12 @@ name: VULKN CI Pipeline
 
 on:
   push:
-    branches: ["*"]       
+    branches: ["**"]
   pull_request:
-    branches: [main]       
+    branches: [main]
 
 jobs:
 
-  # ── Python Backend Tests ─────────────────────────────
   backend-test:
     name: Backend & Scanner Tests
     runs-on: ubuntu-latest
@@ -27,20 +26,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Check Python syntax (no crashes)
+      - name: Check Python syntax
         run: |
-          python -c "import main; print('main.py OK')"
+          python -m compileall -q .
 
-      - name: Run tests (if any exist)
+      - name: Run tests
         run: |
-          pip install pytest
-          pytest tests/ -v --tb=short || echo "No tests yet - skipping"
+          pip install pytest httpx
+          pytest tests/ -v --tb=short
+          exit_code=$?
+          if [ "$exit_code" -eq 5 ]; then
+            echo "No tests yet - skipping"
+            exit 0
+          fi
+          exit "$exit_code"
 
       - name: Health check - verify FastAPI imports
         run: |
           python -c "from fastapi import FastAPI; print('FastAPI OK')"
 
-  # ── Docker Compose Validation ────────────────────────
   docker-validate:
     name: Validate Docker Compose
     runs-on: ubuntu-latest
