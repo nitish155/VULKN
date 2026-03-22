@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────
+  postgres:
+    image: postgres:18.3
+    environment:
+      POSTGRES_DB: vulkn
+      POSTGRES_USER: vulkn_user
+      POSTGRES_PASSWORD: vulkn_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # ── Redis ────────────────────────────────────────────
+  redis:
+    image: redis:8.6
+    ports:
+      - "6379:6379"
+
+  # ── MongoDB ──────────────────────────────────────────
+  mongo:
+    image: mongo:8.2.6-noble
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+# ── Persistent Volumes ───────────────────────────────
+volumes:
+  postgres_data:
+  mongo_data:
