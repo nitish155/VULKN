@@ -1,14 +1,12 @@
-version: '3.8'
-
 services:
 
   # ── PostgreSQL ───────────────────────────────────────
   postgres:
     image: postgres:18.3
     environment:
-      POSTGRES_DB: vulkn
-      POSTGRES_USER: vulkn_user
-      POSTGRES_PASSWORD: vulkn_pass
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
