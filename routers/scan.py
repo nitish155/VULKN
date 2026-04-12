@@ -1,4 +1,5 @@
 from fastapi import APIRouter, BackgroundTasks
+from pydantic import BaseModel
 import uuid
 
 from scanners.sqli_scan import run_sqli_scan
@@ -12,7 +13,9 @@ from scanners.headers_scan import run_headers_scan
 router = APIRouter()
 scan_results = {}
 
-
+class ScanRequest(BaseModel):
+    url: str
+    
 def run_all_scanners(scan_id: str, url: str):
 	scan_results[scan_id]["status"] = "Running"
 
@@ -44,21 +47,25 @@ def run_all_scanners(scan_id: str, url: str):
 
 
 @router.post("/scan")
-def start_scan(url: str, background_tasks: BackgroundTasks):
-	scan_id = str(uuid.uuid4())[:8]
-	scan_results[scan_id] = {
-		"scan_id": scan_id,
-		"target": url,
-		"status": "queued",
-		"findings": [],
-	}
-	background_tasks.add_task(run_all_scanners, scan_id, url)
-	return {
-		"scan_id": scan_id,
-		"target": url,
-		"status": "queued",
-		"message": f"Scan queued for {url}",
-	}
+def start_scan(request: ScanRequest, background_tasks: BackgroundTasks): 
+    url = request.url 
+    
+    scan_id = str(uuid.uuid4())[:8]
+    scan_results[scan_id] = {
+        "scan_id": scan_id,
+        "target": url,
+        "status": "Running", 
+        "findings": [],
+    }
+    
+    background_tasks.add_task(run_all_scanners, scan_id, url)
+    
+    return {
+        "scan_id": scan_id,
+        "target": url,
+        "status": "Running",
+        "message": f"Scan initiated for {url}",
+    }
 
 
 @router.get("/scan/{scan_id}")

@@ -11,9 +11,10 @@ app = FastAPI(
 app.include_router(scan_router)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  
+    allow_origins=["*"],  
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
     
 @app.get("/health")
