@@ -2,7 +2,7 @@
 VULKN — ai_service/severity.py
 Severity scoring rules module.
 
-Day 24 document says:
+Day 24:
   create ai_service/severity.py
   Rules:
     If SQLi + confident > 0.9 = Critical
