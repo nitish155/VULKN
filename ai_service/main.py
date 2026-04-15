@@ -61,8 +61,19 @@ load_model()
 # LOGISTIC REGRESSION MODEL (Day 22/23)
 # NOTE: Used for payload text only — NOT for response body classification
 # ─────────────────────────────────────────────────────────────────────
-LR_MODEL_PATH  = os.getenv("LR_MODEL_PATH",  "datasets/logistic_regression_payload.joblib")
-LR_CONFIG_PATH = os.getenv("LR_CONFIG_PATH", "datasets/lr_classifier_config.json")
+
+# --- OLD (V1) Logistic Regression model paths [Deprecated] ---
+# Used in earlier version (Day 22–23)
+# Keeping for reference / rollback if needed
+# LR_MODEL_PATH  = os.getenv("LR_MODEL_PATH",  "datasets/logistic_regression_payload.joblib")
+# LR_CONFIG_PATH = os.getenv("LR_CONFIG_PATH", "datasets/lr_classifier_config.json")
+
+# --- ACTIVE CONFIG (V2 - Current)(Day 26) ---
+# Improved Logistic Regression model with enhanced features (Day 26)
+# Used for payload classification with better accuracy and performance
+LR_MODEL_PATH  = os.getenv("LR_MODEL_PATH",  "datasets/logistic_regression_v2.joblib")
+LR_CONFIG_PATH = os.getenv("LR_CONFIG_PATH", "datasets/lr_v2_config.json")
+
 lr_model  = None
 lr_config = {}
 
