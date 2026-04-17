@@ -1,14 +1,11 @@
-# scanners/sqli_scan.py
 import requests
 import time
 import urllib3
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, urljoin
 
-# Hide SSL warnings for targets with bad certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Expanded Error Signatures from the Bomberbot guide
 SQL_ERRORS = [
     "you have an error in your sql syntax",
     "warning: mysql",
@@ -28,7 +25,6 @@ SQL_ERRORS = [
     "microsoft ole db provider for sql server error"
 ]
 
-# Advanced Payloads including UNION and Time-based injections
 PAYLOADS = [
     "'",        
     "\"",      
@@ -44,7 +40,6 @@ PAYLOADS = [
 ]
 
 def get_form_details(form):
-    """Extracts all action, method, and input details from an HTML form."""
     details = {}
     action = form.attrs.get("action", "").lower()
     method = form.attrs.get("method", "get").lower()
@@ -62,21 +57,22 @@ def get_form_details(form):
     details["inputs"] = inputs
     return details
 
-def run_sqli_scan(target_url: str) -> dict:
+def run_sqli_scan(target_url: str, cookies: dict = None) -> dict:
     details = []
     session = requests.Session()
     session.headers["User-Agent"] = "VULKN_Scanner/1.0"
     
+    if cookies:
+        session.cookies.update(cookies)
+    
     print(f"[*] Starting SQLi Scan on: {target_url}")
 
-    # --- PHASE 1: URL PARAMETER INJECTION ---
     parsed_url = urlparse(target_url)
     query_params = parse_qs(parsed_url.query)
     
     if query_params:
         for payload in PAYLOADS:
             for key, values in query_params.items():
-                # Test appending payload to the existing value
                 val = values[0] + payload
                 malicious_params = query_params.copy()
                 malicious_params[key] = [val]
@@ -84,7 +80,6 @@ def run_sqli_scan(target_url: str) -> dict:
                 test_url = urlunparse(list(parsed_url[:4]) + [malicious_query] + list(parsed_url[5:]))
                 
                 try:
-                    # LOUD DEBUG: This will now show up in Terminal 2
                     print(f"[?] Testing: {test_url}")
                     
                     start_time = time.time()
@@ -93,7 +88,6 @@ def run_sqli_scan(target_url: str) -> dict:
                     
                     res_text = response.text.lower()
                     
-                    # Check for Error signatures
                     for error in SQL_ERRORS:
                         if error in res_text:
                             print(f"[!] VULNERABILITY FOUND: {error}")
@@ -105,7 +99,6 @@ def run_sqli_scan(target_url: str) -> dict:
                             })
                             break
                     
-                    # Check for Time-based (Fixed logic)
                     duration = end_time - start_time
                     if duration > 4.5 and ("sleep" in payload.lower() or "delay" in payload.lower()):
                         print(f"[!] TIME-BASED VULNERABILITY FOUND: {duration}s")
@@ -120,7 +113,6 @@ def run_sqli_scan(target_url: str) -> dict:
                     print(f"[!] Request failed: {e}")
                     continue
 
-    # --- PHASE 2: HTML FORM INJECTION ---
     try:
         response = session.get(target_url, timeout=5, verify=False)
         soup = BeautifulSoup(response.content, "lxml")
@@ -148,7 +140,6 @@ def run_sqli_scan(target_url: str) -> dict:
                     
                     res_text = res.text.lower()
                     
-                    # Error-Based Check
                     for error in SQL_ERRORS:
                         if error in res_text:
                             details.append({
@@ -159,7 +150,6 @@ def run_sqli_scan(target_url: str) -> dict:
                             })
                             break
                             
-                    # Time-Based Check
                     if (end_time - start_time) > 4.5 and ("delay" in payload.lower() or "sleep" in payload.lower()):
                         details.append({
                             "type": "Time-Based Blind SQLi (Form Input)",
@@ -171,7 +161,7 @@ def run_sqli_scan(target_url: str) -> dict:
                     continue
                     
     except requests.RequestException as e:
-        pass # Target might be unreachable
+        pass 
 
     unique_details = [dict(t) for t in {tuple(d.items()) for d in details}]
     return {
@@ -180,12 +170,3 @@ def run_sqli_scan(target_url: str) -> dict:
         "vulnerabilities_found": len(unique_details),
         "details": unique_details
     }
-
-# Test it locally!
-if __name__ == "__main__":
-    import json
-    vulnerable_target = "http://testphp.vulnweb.com/artists.php?artist=1"
-    
-    print("Running advanced SQLi scan (Forms & Time-Based included)...")
-    result = run_sqli_scan(vulnerable_target)
-    print(json.dumps(result, indent=4))

@@ -1,45 +1,36 @@
-# scanners/headers_scan.py
 import requests
 import urllib3
 
-# Hide SSL warnings for testing
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-def run_headers_scan(target_url: str) -> dict:
+def run_headers_scan(target_url: str, cookies: dict = None) -> dict:
     details = []
     
     try:
-        # We only need to fetch the headers, so a 5-second timeout is plenty
-        response = requests.get(target_url, timeout=5, verify=False)
-        
-        # Convert all headers to lowercase to make checking easy
+        response = requests.get(target_url, timeout=5, verify=False, cookies=cookies)
         headers = {k.lower(): v.lower() for k, v in response.headers.items()}
 
-        # 1. Clickjacking Defense (X-Frame-Options)
         if 'x-frame-options' not in headers:
             details.append({
                 "type": "Missing Security Header (Clickjacking)",
                 "severity": "Medium",
-                "description": "The 'X-Frame-Options' header is missing. The website can be embedded in an attacker's iframe."
+                "description": "The 'X-Frame-Options' header is missing."
             })
 
-        # 2. XSS Mitigation (Content-Security-Policy)
         if 'content-security-policy' not in headers:
             details.append({
                 "type": "Missing Security Header (CSP)",
                 "severity": "Medium",
-                "description": "The 'Content-Security-Policy' header is missing, removing a major layer of defense against XSS."
+                "description": "The 'Content-Security-Policy' header is missing."
             })
 
-        # 3. Protocol Downgrade Defense (Strict-Transport-Security)
         if target_url.startswith('https') and 'strict-transport-security' not in headers:
             details.append({
                 "type": "Missing Security Header (HSTS)",
                 "severity": "Medium",
-                "description": "The 'Strict-Transport-Security' (HSTS) header is missing. Users could be downgraded to insecure HTTP."
+                "description": "The 'Strict-Transport-Security' (HSTS) header is missing."
             })
 
-        # 4. MIME Sniffing Defense
         if 'x-content-type-options' not in headers or headers.get('x-content-type-options') != 'nosniff':
             details.append({
                 "type": "Missing Security Header (MIME Sniffing)",
@@ -47,7 +38,6 @@ def run_headers_scan(target_url: str) -> dict:
                 "description": "The 'X-Content-Type-Options' header is missing or improperly configured."
             })
 
-        # 5. Information Disclosure (Leaking backend tech)
         if 'server' in headers:
             details.append({
                 "type": "Information Disclosure",
@@ -63,7 +53,7 @@ def run_headers_scan(target_url: str) -> dict:
             })
 
     except requests.RequestException:
-        pass # If the site is down, we just return an empty scan
+        pass 
 
     return {
         "scanner_name": "Security Headers & Info Disclosure",
@@ -71,13 +61,3 @@ def run_headers_scan(target_url: str) -> dict:
         "vulnerabilities_found": len(details),
         "details": details
     }
-
-# Test it locally!
-if __name__ == "__main__":
-    import json
-    # testphp is basically a sieve for security headers
-    vulnerable_target = "http://testphp.vulnweb.com"
-    
-    print("Scanning HTTP headers...")
-    result = run_headers_scan(vulnerable_target)
-    print(json.dumps(result, indent=4))
