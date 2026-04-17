@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from routers.scan import router as scan_router
+from database import engine, Base
+import models
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="VULKN",
@@ -14,6 +18,7 @@ app.add_middleware(
     allow_origins=["http://localhost:3000"],  
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
     
 @app.get("/health")

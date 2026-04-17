@@ -2,7 +2,7 @@ services:
 
   # ── PostgreSQL ───────────────────────────────────────
   postgres:
-    image: postgres:18.3
+    image: postgres:16-alpine 
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -14,13 +14,13 @@ services:
 
   # ── Redis ────────────────────────────────────────────
   redis:
-    image: redis:8.6
+    image: redis:7-alpine 
     ports:
       - "6379:6379"
 
   # ── MongoDB ──────────────────────────────────────────
   mongo:
-    image: mongo:8.2.6-noble
+    image: mongo:7.0 
     ports:
       - "27017:27017"
     volumes:

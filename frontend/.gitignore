@@ -1,0 +1,9 @@
+# Block Node
+node_modules/
+
+# Block Python Virtual Environments
+venv/
+__pycache__/
+
+# Block environment variables
+.env
