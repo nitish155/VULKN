@@ -1,26 +1,10 @@
-"""
-VULKN — ai_service/nlp_analyzer.py
-NLP error analyzer.
-
-Day 27 document says:
-  pip install spacy
-  python -m spacy download en_core_web_sm
-  create ai_service/nlp_analyzer.py
-  Load spacy model
-  Extract entities from text:
-    Database names, file paths, stack trace patterns
-
-This module extracts security-sensitive information
-from server error responses using spaCy NER + regex.
-"""
-
 import re
 
 # ── Load spaCy model at startup ────────────────────────────────────────
 nlp = None
 
 def load_nlp():
-    """Load spaCy en_core_web_sm model. Graceful fallback if not installed."""
+    
     global nlp
     try:
         import spacy
@@ -76,20 +60,7 @@ VERSION_STRING_PATTERNS = [
 
 
 def extract_entities(text: str) -> dict:
-    """
-    Extracts security-relevant entities from server response text.
-
-    Document says extract:
-      - Database names     (mysql, postgresql etc)
-      - File paths         (/var/www/html/login.php etc)
-      - Stack trace patterns
-
-    Also extracts:
-      - Version strings    (PHP/7.4.3, Apache/2.4.41)
-      - spaCy NER entities (general named entities)
-
-    Returns dict with all extracted information + risk_level + summary.
-    """
+    
     text_lower = text.lower()
     results = {
         "database_names":  [],
